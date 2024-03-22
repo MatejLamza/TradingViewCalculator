@@ -1,102 +1,77 @@
-//@version=4
-study("TCL Ultra 1 Limit", overlay=true)
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © meowcake24
 
-//Define user input for Settings
-accountSize = input(1000,"Account Size",type = input.integer,group = "Settings")
-riskPercentage = input(50,"Risk",type = input.integer,group = "Settings")
-leverage = input(50,"Leverage",type=input.integer,group = "Settings")
-manage = input(3,"Manage",type=input.integer,group = "Settings")
+//@version=5
+indicator("TCL Calculator Limit 1 Updated",overlay = true)
+
+accountSize = input.int(1000, 'Account Size', group='Settings')
+riskPercentage = input.int(50, 'Risk', group='Settings')
+leverage = input.int(50, 'Leverage', group='Settings')
+manage = input.int(3, 'Manage', group='Settings')
 
 // Define user input for Orders
-entry = input(0, "Entry", type=input.float,group = "Orders")
-limit1 = input(0,"Limit 1",type=input.float,group = "Orders")
-takeProfit = input(0,"Take Profit",type = input.float,group = "Orders")
-stopLoss = input(0,"Stop Loss",type = input.float,group = "Orders")
+entry = input.float(0, 'Entry', group='Orders')
+limit1 = input.float(0, 'Limit 1', group='Orders')
+takeProfit = input.float(0, 'Take Profit', group='Orders')
+stopLoss = input.float(0, 'Stop Loss', group='Orders')
 
-// Draw user inputs on the chart
-plot(entry, title="Entry", color=color.blue, linewidth=2, offset = 65)
-plot(limit1, title="Limit 1", color=color.purple, linewidth=2, offset = 65)
-plot(takeProfit,title="Take Profit", color=color.green, linewidth=2, offset = 65)
-plot(stopLoss, title="Stop Loss",color=color.red, linewidth=2, offset = 65)
+plot(entry, title='Entry', color=color.new(color.blue, 0), linewidth=2, offset=65)
+plot(limit1, title='Limit 1', color=color.new(color.purple, 0), linewidth=2, offset=65)
+plot(takeProfit, title='Take Profit', color=color.new(color.green, 0), linewidth=2, offset=65)
+plot(stopLoss, title='Stop Loss', color=color.new(color.red, 0), linewidth=2, offset=65)
 
 isLong = entry > takeProfit ? false : true
-cellName = isLong ? "Long" : "Short"
+cellName = isLong ? 'Long' : 'Short'
+accountLoss = (riskPercentage/100) * accountSize
+avgCost = (entry + (limit1 * 2)) / 3
 
-//FORMULA
-availableCapital = accountSize * leverage 
-capitalToUse = availableCapital * 0.6
-capitalPerChip = capitalToUse / 3
-percentageAvailable = capitalPerChip / availableCapital
-cutInHalfForSafety = percentageAvailable * 0.6
-available = cutInHalfForSafety * availableCapital
-qty = available / entry
-limit1Qty = qty * 2
-profit = abs(takeProfit-entry)*qty 
-avgCost = ((limit1Qty * limit1) + (qty * entry)) / (qty + limit1Qty)
-takeProfitPercentage = abs(1-(takeProfit/entry))
-entryTPAccountPercentageGain = profit/accountSize
-factor = manage > 1 ? (avgCost * abs(takeProfitPercentage)) / manage : avgCost*abs(takeProfitPercentage) 
-limit1TakeProfitChartValue = isLong ? avgCost + factor : avgCost - factor
-limit1TakeProfit = abs((limit1TakeProfitChartValue-avgCost) * (qty+limit1Qty)) 
-limit1TPAccountPercentageGain = limit1TakeProfit / accountSize
-loss = (riskPercentage/100)*accountSize
+winFactor = entry - takeProfit
+temp = accountLoss / (avgCost-stopLoss)
+takeProfitPercentage = math.abs((winFactor / entry)*100)
+entryQty = (temp/3)
+entryTPAmount = isLong ? (takeProfit*entryQty) - (entry* entryQty) : (entry*entryQty) - (takeProfit * entryQty)
+entryTPPercentage = entryTPAmount / accountSize
 
-entryPositionValue = entry * qty
-limit1PositionValue = limit1 * limit1Qty 
-totalPositionCost = entryPositionValue + limit1PositionValue 
-marginUsed = totalPositionCost / capitalToUse
-stopLossPercentage = loss / totalPositionCost
-calcualtedStopLoss = isLong ? avgCost - (avgCost * stopLossPercentage) : avgCost + (avgCost * stopLossPercentage)
+var tclTable = table.new(position=position.bottom_right, columns=7, rows=7,border_width = 5,frame_width = 3,frame_color = color.gray)
 
-longColor = calcualtedStopLoss > stopLoss ? color.green : color.red
-shortColor = calcualtedStopLoss < stopLoss ? color.green : color.red
+table.merge_cells(table_id = tclTable,start_column = 1,end_column = 2,start_row = 1,end_row = 1)
+table.cell(table_id=tclTable, column=1, row=1, text= "Account Size", text_color=color.white, bgcolor=color.black)
 
-isGoodToGo = isLong ? longColor : shortColor
+table.merge_cells(table_id = tclTable,start_column = 3,end_column = 4,start_row = 1,end_row = 1)
+table.cell(table_id=tclTable, column=3, row=1, text = "$ " +  str.tostring(accountSize) + "", text_color=color.white, bgcolor=color.black)
+table.cell(table_id=tclTable, column=5, row=1, text = "Leverage", text_color=color.white, bgcolor=color.black)
+table.cell(table_id=tclTable, column=6, row=1, text = "Margin", text_color=color.white, bgcolor=color.black)
 
-isGoodToGoString = isGoodToGo == color.green ? "Good to GO!" : "No bueno !"
+table.merge_cells(table_id = tclTable,start_column = 1,end_column = 2,start_row = 2,end_row = 2)
+table.cell(table_id=tclTable, column=1, row=2, text = str.substring(syminfo.ticker,0,5) + " \n" + cellName, text_color=color.white, bgcolor=color.black)
+table.merge_cells(table_id = tclTable,start_column = 3,end_column = 4,start_row = 2,end_row = 2)
+table.cell(table_id=tclTable, column=3, row=2, text = "QTY", text_color=color.white, bgcolor=color.black)
+table.cell(table_id=tclTable, column=5, row=2, text = str.tostring(leverage) + "X", text_color=color.white, bgcolor=color.black)
+table.cell(table_id=tclTable, column=6, row=2, text = "74.24%", text_color=color.white, bgcolor=color.black)
 
-// Plot table headers
-var tclTable = table.new(position = position.bottom_right,columns = 6,rows = 7)
-tableBackground = color.white, border_width = 1, frame_color = color.gray, frame_width = 3, border_color = color.red
-tickerBg = isLong ? color.green : color.red
+table.cell(table_id=tclTable, column=1, row=3, text = "Entry", text_color=color.white, bgcolor=color.black)
+table.cell(table_id=tclTable, column=2, row=3, text = str.tostring(entry), text_color=color.white, bgcolor=color.black)
 
-table.cell(table_id = tclTable, column = 0,row = 0,text = syminfo.ticker + "\n" + cellName,text_color = color.white,bgcolor = tickerBg)
-table.cell(table_id = tclTable, column = 1,row = 0,text = "Price", text_color = color.white,bgcolor = color.gray)
-table.cell(table_id = tclTable, column = 2,row = 0,text = "Qty", text_color = color.white,bgcolor = color.green)
-table.cell(table_id = tclTable, column = 3,row = 0,text = "TP", text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 4,row = 0,text = "Profit", text_color = color.white,bgcolor = color.blue)
-table.cell(table_id = tclTable, column = 5,row = 0,text = "Take Profit %", text_color = color.white,bgcolor = color.orange)
+table.merge_cells(table_id = tclTable,start_column = 3,end_column = 4,start_row = 3,end_row = 4)
+table.cell(table_id=tclTable, column=3, row=3, text = str.tostring(math.round((entryQty/3),2)), text_color=color.white, bgcolor=color.black)
 
-table.cell(table_id = tclTable, column = 0,row = 1,text = "Entry", text_color = color.white, bgcolor = color.purple)
-table.cell(table_id = tclTable, column = 0,row = 2,text = "Limit 1", text_color = color.white,bgcolor = color.purple)
-table.cell(table_id = tclTable, column = 0,row = 3,text = "Stop loss", text_color = color.white,bgcolor = color.red)
-table.cell(table_id = tclTable, column = 0,row = 4,text = "Leverage", text_color = color.white,bgcolor = color.green)
-table.cell(table_id = tclTable, column = 0,row = 5,text = "Calculated", text_color = color.white,bgcolor = isGoodToGo)
-table.cell(table_id = tclTable, column = 1,row = 5,text = "stop Loss", text_color = color.white,bgcolor = isGoodToGo)
+table.merge_cells(table_id = tclTable,start_column = 5,end_column = 6,start_row = 3,end_row = 3)
+table.cell(table_id=tclTable, column=5, row=3, text = "Risk", text_color=color.white, bgcolor=color.black)
 
-table.cell(table_id = tclTable, column = 1,row = 1,text = tostring(entry), text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 2,row = 1,text = tostring(round(qty,1)), text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 3,row = 1,text = tostring(takeProfit), text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 4,row = 1,text = tostring(round(profit,2)) + " $", text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 5,row = 1,text = tostring(round((entryTPAccountPercentageGain*100),2)) + " %", text_color = color.white,bgcolor = color.black)
+table.cell(table_id=tclTable, column=1, row=4, text = "TP", text_color=color.white, bgcolor=color.black)
+table.cell(table_id=tclTable, column=2, row=4, text = str.tostring(takeProfit), text_color=color.white, bgcolor=color.black)
 
-table.cell(table_id = tclTable, column = 1,row = 2,text = tostring(limit1), text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 2,row = 2,text = tostring(round(limit1Qty,1)), text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 3,row = 2,text = tostring(limit1TakeProfitChartValue), text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 4,row = 2,text = tostring(round(limit1TakeProfit,2)) + " $", text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 5,row = 2,text = tostring(round((limit1TPAccountPercentageGain*100),2)) + " %", text_color = color.white,bgcolor = color.black)
+table.cell(table_id=tclTable, column=5, row=4, text = str.tostring(riskPercentage) + "%", text_color=color.white, bgcolor=color.black)
+table.cell(table_id=tclTable, column=6, row=4, text = str.tostring(accountLoss) + " $", text_color=color.white, bgcolor=color.black)
 
-table.cell(table_id = tclTable, column = 1,row = 3,text = tostring(stopLoss), text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 2,row = 3,text = tostring(round(qty+limit1Qty,1)), text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 3,row = 3,text = "", text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 4,row = 3,text = "- " + tostring(loss) + " $", text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 5,row = 3,text = tostring(riskPercentage), text_color = color.white,bgcolor = color.black)
+table.cell(table_id=tclTable, column=1, row=5, text = "SL", text_color=color.white, bgcolor=color.black)
+table.cell(table_id=tclTable, column=2, row=5, text = str.tostring(stopLoss), text_color=color.white, bgcolor=color.black)
 
-table.cell(table_id = tclTable, column = 1,row = 4,text = tostring(leverage) + "x", text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 2,row = 4,text = "MARGIN", text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 3,row = 4,text = tostring(round((marginUsed * 100),2)) + " %", text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 4,row = 4,text = "ACCOUNT", text_color = color.white,bgcolor = color.black)
-table.cell(table_id = tclTable, column = 5,row = 4,text = tostring(accountSize) + " $", text_color = color.white,bgcolor = color.black)
+table.merge_cells(table_id = tclTable,start_column = 3,end_column = 4,start_row = 5,end_row = 5)
+table.cell(table_id=tclTable, column=3, row=5, text = str.tostring(math.round(takeProfitPercentage,2)) + " %", text_color=color.white, bgcolor=color.black)
 
-table.cell(table_id = tclTable, column = 2,row = 5,text = tostring(calcualtedStopLoss), text_color = color.white,bgcolor = isGoodToGo)
-table.cell(table_id = tclTable, column = 3,row = 5,text = isGoodToGoString, text_color = color.white,bgcolor = isGoodToGo)
+table.merge_cells(table_id = tclTable,start_column = 5,end_column = 6,start_row = 5,end_row = 5)
+table.cell(table_id=tclTable, column=5, row=5, text = "Entry TP Amount", text_color=color.white, bgcolor=color.black)
+
+table.cell(table_id=tclTable, column=5, row=6, text = str.tostring(math.round(entryTPAmount,2)) + " $", text_color=color.white, bgcolor=color.black)
+table.cell(table_id=tclTable, column=6, row=6, text = str.tostring(math.round((entryTPPercentage*100),2)) + " %", text_color=color.white, bgcolor=color.black)
